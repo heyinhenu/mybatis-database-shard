@@ -147,6 +147,7 @@ public class ShardSqlSessionTemplate extends SqlSessionTemplate {
     protected SortedMap<String, DataSource> lookupDataSourcesByRouter(final String statementName, final Object parameterObject) {
         SortedMap<String, DataSource> resultMap = new TreeMap<String, DataSource>();
 
+
         if (getRouter() != null && getMyShardDataSourceService() != null) {
             List<String> dsSet = getRouter().doRoute(new MyBatisRoutingFact(statementName, parameterObject)).getResourceIdentities();
             if (CollectionUtils.isNotEmpty(dsSet)) {

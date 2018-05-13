@@ -15,6 +15,9 @@ package com.gimc.mybatis.db.shard;
 import java.sql.SQLException;
 import java.util.Collection;
 
+import org.apache.ibatis.session.ExecutorType;
+import org.apache.ibatis.session.SqlSession;
+import org.mybatis.spring.SqlSessionTemplate;
 import org.mybatis.spring.support.SqlSessionDaoSupport;
 import org.springframework.dao.DataAccessException;
 
@@ -22,8 +25,9 @@ import org.springframework.dao.DataAccessException;
 public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
 
     public int batchInsert(final String statementName, final Collection<?> entities) throws DataAccessException {
+
+        int counter = 0;
         if (isPartitionBehaviorEnabled()) {
-            int counter = 0;
             DataAccessException lastEx = null;
             for (Object parameterObject : entities) {
                 try {
@@ -36,18 +40,25 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
             if (lastEx != null) {
                 throw lastEx;
             }
-            return counter;
         } else {
-            return (Integer) getSqlSession().execute(new SqlMapClientCallback() {
-                public Object doInSqlMapClient(SqlMapExecutor executor) throws SQLException {
-                    executor.startBatch();
-                    for (Object item : entities) {
-                        executor.insert(statementName, item);
-                    }
-                    return executor.executeBatch();
+            DataAccessException lastEx = null;
+            ((SqlSessionTemplate) getSqlSession()).getSqlSessionFactory().openSession(ExecutorType.BATCH);
+            SqlSession sqlSession = getSqlSession();
+            for (Object parameterObject : entities) {
+                try {
+                    sqlSession.insert(statementName, parameterObject);
+                    counter++;
+                } catch (DataAccessException e) {
+                    lastEx = e;
                 }
-            });
+            }
+            sqlSession.flushStatements();
+            sqlSession.commit();
+            if (lastEx != null) {
+                throw lastEx;
+            }
         }
+        return counter;
     }
 
     public int batchDelete(final String statementName, final Collection<?> entities) throws DataAccessException {
