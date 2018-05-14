@@ -12,9 +12,7 @@
  */
 package com.gimc.mybatis.db.shard;
 
-import java.sql.SQLException;
 import java.util.Collection;
-
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.SqlSession;
 import org.mybatis.spring.SqlSessionTemplate;
@@ -26,9 +24,12 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
 
     public int batchInsert(final String statementName, final Collection<?> entities) throws DataAccessException {
 
+        ExecutorType executorType = ((SqlSessionTemplate) getSqlSession()).getSqlSessionFactory().getConfiguration().getDefaultExecutorType();
+        System.out.println("前=================" + executorType);
+
         int counter = 0;
+        DataAccessException lastEx = null;
         if (isPartitionBehaviorEnabled()) {
-            DataAccessException lastEx = null;
             for (Object parameterObject : entities) {
                 try {
                     getSqlSession().insert(statementName, parameterObject);
@@ -41,7 +42,6 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
                 throw lastEx;
             }
         } else {
-            DataAccessException lastEx = null;
             ((SqlSessionTemplate) getSqlSession()).getSqlSessionFactory().openSession(ExecutorType.BATCH);
             SqlSession sqlSession = getSqlSession();
             for (Object parameterObject : entities) {
@@ -57,14 +57,15 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
             if (lastEx != null) {
                 throw lastEx;
             }
+            System.out.println("后=================" + executorType);
         }
         return counter;
     }
 
     public int batchDelete(final String statementName, final Collection<?> entities) throws DataAccessException {
+        int counter = 0;
+        DataAccessException lastEx = null;
         if (isPartitionBehaviorEnabled()) {
-            int counter = 0;
-            DataAccessException lastEx = null;
             for (Object entity : entities) {
                 try {
                     counter += getSqlSession().delete(statementName, entity);
@@ -75,24 +76,27 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
             if (lastEx != null) {
                 throw lastEx;
             }
-            return counter;
         } else {
-            return (Integer) getSqlSession().execute(new SqlMapClientCallback() {
-                public Object doInSqlMapClient(SqlMapExecutor executor) throws SQLException {
-                    executor.startBatch();
-                    for (Object parameterObject : entities) {
-                        executor.delete(statementName, parameterObject);
-                    }
-                    return executor.executeBatch();
+            ((SqlSessionTemplate) getSqlSession()).getSqlSessionFactory().openSession(ExecutorType.BATCH);
+            SqlSession sqlSession = getSqlSession();
+            for (Object entity : entities) {
+                try {
+                    counter += sqlSession.delete(statementName, entity);
+                } catch (DataAccessException e) {
+                    lastEx = e;
                 }
-            });
+            }
+            if (lastEx != null) {
+                throw lastEx;
+            }
         }
+        return counter;
     }
 
     public int batchUpdate(final String statementName, final Collection<?> entities) throws DataAccessException {
+        int counter = 0;
+        DataAccessException lastEx = null;
         if (isPartitionBehaviorEnabled()) {
-            int counter = 0;
-            DataAccessException lastEx = null;
             for (Object parameterObject : entities) {
                 try {
                     counter += getSqlSession().update(statementName, parameterObject);
@@ -103,19 +107,21 @@ public class ShardSqlSessionDaoSupport extends SqlSessionDaoSupport {
             if (lastEx != null) {
                 throw lastEx;
             }
-            return counter;
         } else {
-            return (Integer) getSqlSession().execute(new SqlMapClientCallback() {
-
-                public Object doInSqlMapClient(SqlMapExecutor executor) throws SQLException {
-                    executor.startBatch();
-                    for (Object parameterObject : entities) {
-                        executor.update(statementName, parameterObject);
-                    }
-                    return executor.executeBatch();
+            ((SqlSessionTemplate) getSqlSession()).getSqlSessionFactory().openSession(ExecutorType.BATCH);
+            SqlSession sqlSession = getSqlSession();
+            for (Object parameterObject : entities) {
+                try {
+                    counter += sqlSession.update(statementName, parameterObject);
+                } catch (DataAccessException e) {
+                    lastEx = e;
                 }
-            });
+            }
+            if (lastEx != null) {
+                throw lastEx;
+            }
         }
+        return counter;
     }
 
     protected boolean isPartitionBehaviorEnabled() {
