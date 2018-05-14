@@ -1,17 +1,7 @@
-/**
- * Copyright 1999-2011 Alibaba Group
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations
- * under the License.
- */
 package com.gimc.mybatis.db.shard.support.execution;
 
+import com.gimc.mybatis.db.shard.SqlSessionCallBack;
+import com.gimc.mybatis.db.shard.support.utils.CollectionUtils;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -20,34 +10,29 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-
 import javax.sql.DataSource;
-
 import org.apache.commons.lang.Validate;
+import org.apache.ibatis.jdbc.SQL;
+import org.apache.ibatis.session.SqlSession;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
 import org.springframework.jdbc.datasource.TransactionAwareDataSourceProxy;
-import org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator;
-import org.springframework.orm.ibatis.SqlMapClientCallback;
-
-import com.gimc.mybatis.db.shard.support.utils.CollectionUtils;
-import com.ibatis.sqlmap.client.SqlMapClient;
-import com.ibatis.sqlmap.client.SqlMapSession;
 
 public class DefaultConcurrentRequestProcessor implements IConcurrentRequestProcessor {
 
     private transient final Logger logger = LoggerFactory.getLogger(DefaultConcurrentRequestProcessor.class);
 
-    private SqlMapClient sqlMapClient;
+    private SqlSessionFactory sessionFactory;
 
     public DefaultConcurrentRequestProcessor() {
     }
 
-    public DefaultConcurrentRequestProcessor(SqlMapClient sqlMapClient) {
-        this.sqlMapClient = sqlMapClient;
+    public DefaultConcurrentRequestProcessor(SqlSessionFactory sessionFactory) {
+        this.sessionFactory = sessionFactory;
     }
 
     public List<Object> process(List<ConcurrentRequest> requests) {
@@ -64,9 +49,8 @@ public class DefaultConcurrentRequestProcessor implements IConcurrentRequestProc
 
             for (RequestDepository rdepo : requestsDepo) {
                 ConcurrentRequest request = rdepo.getOriginalRequest();
-                final SqlMapClientCallback action = request.getAction();
+                final SqlSessionCallBack action = request.getAction();
                 final Connection connection = rdepo.getConnectionToUse();
-
                 futures.add(request.getExecutor().submit(new Callable<Object>() {
                     public Object call() throws Exception {
                         try {
@@ -77,7 +61,6 @@ public class DefaultConcurrentRequestProcessor implements IConcurrentRequestProc
                     }
                 }));
             }
-
             try {
                 latch.await();
             } catch (InterruptedException e) {
@@ -101,25 +84,16 @@ public class DefaultConcurrentRequestProcessor implements IConcurrentRequestProc
                 }
             }
         }
-
         fillResultListWithFutureResults(futures, resultList);
-
         return resultList;
     }
 
-    protected Object executeWith(Connection connection, SqlMapClientCallback action) {
-        SqlMapSession session = getSqlMapClient().openSession();
+    protected Object executeWith(Connection connection, SqlSessionCallBack action) {
+        SqlSession session = getSessionFactory().openSession(connection);
         try {
-            try {
-                session.setUserConnection(connection);
-            } catch (SQLException e) {
-                throw new CannotGetJdbcConnectionException("Could not get JDBC Connection", e);
-            }
-            try {
-                return action.doInSqlMapClient(session);
-            } catch (SQLException ex) {
-                throw new SQLErrorCodeSQLExceptionTranslator().translate("SqlMapClient operation", null, ex);
-            }
+            return action.execute(session);
+        } catch (SQLException e) {
+            throw new ConcurrencyFailureException("", e);
         } finally {
             session.close();
         }
@@ -160,13 +134,12 @@ public class DefaultConcurrentRequestProcessor implements IConcurrentRequestProc
         return depos;
     }
 
-    public void setSqlMapClient(SqlMapClient sqlMapClient) {
-        Validate.notNull(sqlMapClient);
-        this.sqlMapClient = sqlMapClient;
+    public SqlSessionFactory getSessionFactory() {
+        return sessionFactory;
     }
 
-    public SqlMapClient getSqlMapClient() {
-        return sqlMapClient;
+    public void setSessionFactory(SqlSessionFactory sessionFactory) {
+        Validate.notNull(sessionFactory);
+        this.sessionFactory = sessionFactory;
     }
-
 }

@@ -12,7 +12,7 @@
  */
 package com.gimc.mybatis.db.shard.transaction;
 
-import com.gimc.mybatis.db.shard.datasources.MyShardDataSourceService;
+import com.gimc.mybatis.db.shard.datasources.IShardDataSourceService;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
@@ -42,7 +42,7 @@ public class MultipleDataSourcesTransactionManager extends AbstractPlatformTrans
 
     private static final long serialVersionUID = 4712923770419532385L;
 
-    private MyShardDataSourceService myShardDataSourceService;
+    private IShardDataSourceService iShardDataSourceService;
     private List<PlatformTransactionManager> transactionManagers = new ArrayList<PlatformTransactionManager>();
 
     @Override
@@ -118,17 +118,17 @@ public class MultipleDataSourcesTransactionManager extends AbstractPlatformTrans
         }
     }
 
-    public void setMyShardDataSourceService(MyShardDataSourceService myShardDataSourceService) {
-        this.myShardDataSourceService = myShardDataSourceService;
+    public void setiShardDataSourceService(IShardDataSourceService iShardDataSourceService) {
+        this.iShardDataSourceService = iShardDataSourceService;
     }
 
-    public MyShardDataSourceService getMyShardDataSourceService() {
-        return myShardDataSourceService;
+    public IShardDataSourceService getiShardDataSourceService() {
+        return iShardDataSourceService;
     }
 
     public void afterPropertiesSet() throws Exception {
-        Validate.notNull(myShardDataSourceService);
-        for (DataSource dataSource : getMyShardDataSourceService().getDataSources().values()) {
+        Validate.notNull(iShardDataSourceService);
+        for (DataSource dataSource : getiShardDataSourceService().getDataSources().values()) {
             PlatformTransactionManager txManager = this.createTransactionManager(dataSource);
             getTransactionManagers().add(txManager);
         }

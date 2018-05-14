@@ -12,11 +12,11 @@
  */
 package com.gimc.mybatis.db.shard.support.execution;
 
+import com.gimc.mybatis.db.shard.SqlSessionCallBack;
 import java.util.concurrent.ExecutorService;
 
 import javax.sql.DataSource;
 
-import org.springframework.orm.ibatis.SqlMapClientCallback;
 
 /**
  * {@link #action} will be executed on {@link #dataSource} with {@link #executor} asynchronously.<br>
@@ -26,15 +26,15 @@ import org.springframework.orm.ibatis.SqlMapClientCallback;
  */
 public class ConcurrentRequest {
 
-    private SqlMapClientCallback action;
+    private SqlSessionCallBack action;
     private DataSource dataSource;
     private ExecutorService executor;
 
-    public SqlMapClientCallback getAction() {
+    public SqlSessionCallBack getAction() {
         return action;
     }
 
-    public void setAction(SqlMapClientCallback action) {
+    public void setAction(SqlSessionCallBack action) {
         this.action = action;
     }
 

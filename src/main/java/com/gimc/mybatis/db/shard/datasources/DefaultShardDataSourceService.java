@@ -36,7 +36,7 @@ import com.gimc.mybatis.db.shard.support.utils.CollectionUtils;
  *
  * @author fujohnwang
  */
-public class DefaultShardDataSourceService implements MyShardDataSourceService, InitializingBean {
+public class DefaultShardDataSourceService implements IShardDataSourceService, InitializingBean {
 
     private Set<ShardDataSourceDescriptor> dataSourceDescriptors = new HashSet<ShardDataSourceDescriptor>();
     private List<IDataSourcePostProcessor> dataSourcePostProcessor = new ArrayList<IDataSourcePostProcessor>();

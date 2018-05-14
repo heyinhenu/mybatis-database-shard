@@ -12,7 +12,6 @@
  */
 package com.gimc.mybatis.db.shard.datasources;
 
-import com.gimc.mybatis.db.shard.ShardSqlSessionTemplate;
 import com.gimc.mybatis.db.shard.transaction.MultipleDataSourcesTransactionManager;
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +28,7 @@ import javax.sql.DataSource;
  * @author fujohnwang
  * @since 1.0
  */
-public interface MyShardDataSourceService {
+public interface IShardDataSourceService {
 
     Map<String, DataSource> getDataSources();
 
